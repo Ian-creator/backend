@@ -1,0 +1,237 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SYSTEM_ADMINISTRATOR
+  IT_MANAGER
+  EXECUTIVE
+  MANAGER
+  HR_OFFICER
+  OFFICER
+  SUPERVISOR
+  EMPLOYEE
+  ASSISTANT
+}
+
+enum Status {
+  ACTIVE
+  PROBATION
+  SUSPENDED
+  TERMINATED
+}
+
+enum AssetCategory {
+  OFFICE_ASSETS
+  FIELD_ASSETS
+  DONATED_ASSETS
+}
+
+model User {
+  id              String      @id @default(uuid())
+  username        String      @unique
+  passwordHash    String
+  role            Role
+  status          Status      @default(ACTIVE)
+  fullName        String
+  jobTitle        String
+  nin             String      @unique
+  photoUrl        String?
+  department      Department? @relation(fields: [departmentId], references: [id])
+  departmentId    String?
+  supervisor      User?       @relation("SupervisorSubordinates", fields: [supervisorId], references: [id])
+  supervisorId    String?
+  subordinates    User[]      @relation("SupervisorSubordinates")
+  attendance      Attendance[]
+  fieldVisits     FieldVisit[]
+  workplans       Workplan[]
+  timesheets      Timesheet[]
+  assets          Asset[]
+  loginLogs       LoginLog[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  sentMessages     Message[]        @relation("SentMessages")
+  receivedMessages Message[]        @relation("ReceivedMessages")
+  leaveRequests    LeaveRequest[]   @relation("UserLeaves")
+  supervisorLeaves LeaveRequest[]   @relation("SupervisorLeaves")
+  projectAssignments ProjectAssignment[]
+  digitalSignature String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model LeaveRequest {
+  id           String   @id @default(uuid())
+  user         User     @relation("UserLeaves", fields: [userId], references: [id])
+  userId       String
+  supervisor   User     @relation("SupervisorLeaves", fields: [supervisorId], references: [id])
+  supervisorId String
+  type         String   // "ANNUAL", "SICK", "MATERNITY", "PATERNITY", "STUDY", "UNPAID"
+  startDate    DateTime
+  endDate      DateTime
+  reason       String?
+  status       String   @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Holiday {
+  id        String   @id @default(uuid())
+  name      String
+  date      DateTime
+  type      String   @default("PUBLIC") // "PUBLIC", "OFFICE"
+  createdAt DateTime @default(now())
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  status      String   @default("PLANNING") // "PLANNING", "ACTIVE", "COMPLETED", "ON_HOLD"
+  department    Department @relation(fields: [departmentId], references: [id])
+  departmentId  String
+  startDate   DateTime?
+  endDate     DateTime?
+  assignments ProjectAssignment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProjectAssignment {
+  id         String   @id @default(uuid())
+  project    Project  @relation(fields: [projectId], references: [id])
+  projectId  String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  role       String?  // e.g. "Project Manager", "Developer"
+  assignedAt DateTime @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  title     String
+  content   String
+  type      String   // "info", "success", "warning", "error"
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  senderId    String
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  receiverId  String
+  subject     String
+  body        String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  users     User[]
+  projects  Project[]
+  createdAt DateTime @default(now())
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  type      String   // "sign-in", "return-from-field", "sign-out"
+  timestamp DateTime @default(now())
+  lat       Float?
+  long      Float?
+  method    String   // "auto-wifi", "manual"
+  reason    String?  // For manual HR override
+  createdAt DateTime @default(now())
+}
+
+model FieldVisit {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  startTime DateTime
+  endTime   DateTime?
+  lat       Float
+  long      Float
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model Workplan {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  fileName   String
+  fileUrl    String
+  content    Json
+  version    Int      @default(1)
+  uploadedBy String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Timesheet {
+  id                String   @id @default(uuid())
+  user              User     @relation(fields: [userId], references: [id])
+  userId            String
+  periodStart       DateTime
+  periodEnd         DateTime
+  content           Json?
+  status            String   @default("draft") // "draft", "submitted", "approved", "rejected"
+  comments          String?
+  supervisorComment String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Asset {
+  id                String        @id @default(uuid())
+  name              String
+  category          AssetCategory
+  serialNumber      String        @unique
+  purchaseDate      DateTime
+  value             Float
+  status            String        @default("available")
+  assignedTo        User?         @relation(fields: [assignedToId], references: [id])
+  assignedToId      String?
+  assignedToLocation String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model LoginLog {
+  id        String   @id @default(uuid())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  username  String
+  success   Boolean
+  timestamp DateTime @default(now())
+  ipAddress String?
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  action      String
+  targetTable String
+  targetId    String
+  timestamp   DateTime @default(now())
+  details     String
+}
