@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const timesheetController_1 = require("../controllers/timesheetController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const router = (0, express_1.Router)();
+router.use(authMiddleware_1.authenticate);
+router.get('/', timesheetController_1.getTimesheets);
+router.post('/', timesheetController_1.createTimesheet);
+router.patch('/:id/status', (0, authMiddleware_1.authorize)(['SUPERVISOR', 'MANAGER', 'OFFICER', 'SYSTEM_ADMIN_ISTRATOR', 'HR_OFFICER']), timesheetController_1.updateTimesheetStatus);
+exports.default = router;

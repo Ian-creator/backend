@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const projectController_1 = require("../controllers/projectController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const router = (0, express_1.Router)();
+router.use(authMiddleware_1.authenticate);
+router.get('/', projectController_1.getProjects);
+router.post('/', (0, authMiddleware_1.authorize)(['SYSTEM_ADMINISTRATOR', 'HR_OFFICER']), projectController_1.createProject);
+router.post('/assign', (0, authMiddleware_1.authorize)(['SYSTEM_ADMINISTRATOR', 'HR_OFFICER', 'SUPERVISOR', 'MANAGER', 'OFFICER']), projectController_1.assignStaff);
+router.delete('/assign/:id', (0, authMiddleware_1.authorize)(['SYSTEM_ADMINISTRATOR', 'HR_OFFICER']), projectController_1.removeStaff);
+exports.default = router;
